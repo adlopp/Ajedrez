@@ -1,8 +1,6 @@
 import pygame
 
-# CAMBIA ESTO por la URL de tu servidor en Fly.io
-# Ejemplo: "wss://ajedrez-online-server.fly.dev"
-SERVER_URL = "ws://localhost:8765"
+SERVER_URL = "wss://ajedrez-online-server.fly.dev"
 
 WINDOW_WIDTH = 900
 WINDOW_HEIGHT = 640

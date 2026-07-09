@@ -223,11 +223,20 @@ class ChessClient:
             self.state = "menu"
 
     def handle_board_click(self, row, col):
+        if self.state != "playing":
+            return
+
+        my_turn = (self.board.turn == chess.WHITE and self.my_color == "white") or \
+                  (self.board.turn == chess.BLACK and self.my_color == "black")
+        if not my_turn:
+            return
+
         sq = display_to_square(row, col, self.perspective)
         piece = self.board.piece_at(sq)
+        my_color_bool = (self.my_color == "white")
 
         if self.selected is None:
-            if piece and piece.color == (self.my_color == "white"):
+            if piece and piece.color == my_color_bool:
                 self.selected = (row, col)
                 self.legal_targets = set()
                 for m in self.board.legal_moves:
@@ -257,17 +266,16 @@ class ChessClient:
                         return
 
                 self.execute_move(from_sq, to_sq, None)
+            elif piece and piece.color == my_color_bool:
+                self.selected = (row, col)
+                self.legal_targets = set()
+                for m in self.board.legal_moves:
+                    if m.from_square == sq:
+                        tr, tc = square_to_display(m.to_square, self.perspective)
+                        self.legal_targets.add((tr, tc))
             else:
-                if piece and piece.color == (self.my_color == "white"):
-                    self.selected = (row, col)
-                    self.legal_targets = set()
-                    for m in self.board.legal_moves:
-                        if m.from_square == sq:
-                            tr, tc = square_to_display(m.to_square, self.perspective)
-                            self.legal_targets.add((tr, tc))
-                else:
-                    self.selected = None
-                    self.legal_targets = set()
+                self.selected = None
+                self.legal_targets = set()
 
     def execute_move(self, from_sq, to_sq, promotion):
         move = chess.Move(from_sq, to_sq, promotion=promotion)

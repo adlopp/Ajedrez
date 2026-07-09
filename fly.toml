@@ -1,8 +1,5 @@
 app = "ajedrez-online-server"
 
-[build]
-  builder = "heroku/buildpacks:20"
-
 [env]
   PORT = "8765"
 
