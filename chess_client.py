@@ -2,8 +2,30 @@ import pygame
 import sys
 import chess
 import chess.pgn
+import wave
+import struct
+import math
 from constants import *
 from network import ChessNetwork
+
+
+def make_sound(frequency=440, duration=0.1, volume=0.5, fade=0.02):
+    sample_rate = 44100
+    n_samples = int(sample_rate * duration)
+    n_fade = int(sample_rate * fade)
+    buf = []
+    for i in range(n_samples):
+        t = i / sample_rate
+        envelope = 1.0
+        if i < n_fade:
+            envelope = i / n_fade
+        elif i > n_samples - n_fade:
+            envelope = (n_samples - i) / n_fade
+        val = int(32767 * volume * envelope * math.sin(2 * math.pi * frequency * t))
+        buf.append(struct.pack('<h', val))
+    raw = b''.join(buf)
+    sound = pygame.mixer.Sound(buffer=raw)
+    return sound
 
 
 def square_to_display(sq, perspective):
@@ -57,9 +79,15 @@ class Button:
 class ChessClient:
     def __init__(self):
         pygame.init()
+        pygame.mixer.init(frequency=44100, size=-16, channels=1, buffer=512)
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         pygame.display.set_caption("Ajedrez Online")
         self.clock = pygame.time.Clock()
+
+        self.snd_move = make_sound(600, 0.08, 0.4)
+        self.snd_capture = make_sound(400, 0.15, 0.5)
+        self.snd_check = make_sound(880, 0.2, 0.5)
+        self.snd_game_over = make_sound(300, 0.4, 0.5)
 
         self.font_large = pygame.font.SysFont("segoeui", 46)
         self.font_med = pygame.font.SysFont("segoeui", 30)
@@ -200,13 +228,16 @@ class ChessClient:
             self.network.send({"type": "draw_offer"})
             self.draw_offered = True
             self.add_message("Has ofrecido tablas")
+            self.update_game_buttons()
         elif text == "Aceptar Tablas" and self.draw_received:
             self.network.send({"type": "draw_response", "accept": True})
             self.draw_received = False
+            self.update_game_buttons()
         elif text == "Rechazar Tablas" and self.draw_received:
             self.network.send({"type": "draw_response", "accept": False})
             self.draw_received = False
             self.add_message("Has rechazado las tablas")
+            self.update_game_buttons()
         elif text == "Ofrecer Revancha":
             self.network.send({"type": "rematch"})
             self.add_message("Has ofrecido revancha")
@@ -285,7 +316,12 @@ class ChessClient:
             if p:
                 sym = PIECE_UNICODE.get(p.symbol(), '?')
                 (self.captured_black if p.color == chess.BLACK else self.captured_white).append(sym)
+                self.snd_capture.play()
+            else:
+                self.snd_move.play()
             self.board.push(move)
+            if self.board.is_check():
+                self.snd_check.play()
             self.last_move = (from_sq, to_sq)
             self.selected = None
             self.legal_targets = set()
@@ -295,6 +331,7 @@ class ChessClient:
 
             outcome = self.board.outcome()
             if outcome:
+                self.snd_game_over.play()
                 self.handle_game_end(outcome)
             else:
                 self.draw_offered = False
@@ -418,11 +455,17 @@ class ChessClient:
                 if p:
                     sym = PIECE_UNICODE.get(p.symbol(), '?')
                     (self.captured_black if p.color == chess.BLACK else self.captured_white).append(sym)
+                    self.snd_capture.play()
+                else:
+                    self.snd_move.play()
                 self.board.push(move)
+                if self.board.is_check():
+                    self.snd_check.play()
                 self.last_move = (move.from_square, move.to_square)
                 self.move_log.append(san)
                 outcome = self.board.outcome()
                 if outcome:
+                    self.snd_game_over.play()
                     self.handle_game_end(outcome)
             except Exception as e:
                 self.add_message(f"Error al procesar movimiento: {e}")
@@ -663,9 +706,12 @@ class ChessClient:
             self.draw_game_over_overlay()
 
     def draw_board(self):
-        bx, by = BOARD_X - 4, BOARD_Y - 4
-        bs = BOARD_SIZE + 8
-        pygame.draw.rect(self.screen, (100, 90, 80), (bx, by, bs, bs), border_radius=4)
+        my_turn = (self.board.turn == chess.WHITE and self.my_color == "white") or \
+                  (self.board.turn == chess.BLACK and self.my_color == "black")
+        border_color = (200, 60, 60) if (my_turn and self.state == "playing") else (100, 90, 80)
+        bx, by = BOARD_X - 6, BOARD_Y - 6
+        bs = BOARD_SIZE + 12
+        pygame.draw.rect(self.screen, border_color, (bx, by, bs, bs), border_radius=5)
 
         for row in range(8):
             for col in range(8):
@@ -706,11 +752,11 @@ class ChessClient:
                     color = (40, 40, 40) if piece.color else (245, 245, 245)
                     f = self.font_piece_small if piece.piece_type != chess.KING else self.font_piece
                     rect = get_square_rect(row, col)
-                    if not piece.color:
-                        outline = f.render(sym, True, (30, 30, 30))
-                        orect = outline.get_rect(center=rect.center)
-                        for dx, dy in (-2, 0), (2, 0), (0, -2), (0, 2):
-                            self.screen.blit(outline, orect.move(dx, dy))
+                    outline_color = (30, 30, 30) if piece.color else (100, 90, 80)
+                    outline = f.render(sym, True, outline_color)
+                    orect = outline.get_rect(center=rect.center)
+                    for dx, dy in (-2, 0), (2, 0), (0, -2), (0, 2), (-2, -2), (2, -2), (-2, 2), (2, 2):
+                        self.screen.blit(outline, orect.move(dx, dy))
                     surf = f.render(sym, True, color)
                     self.screen.blit(surf, surf.get_rect(center=rect.center))
 
@@ -731,21 +777,23 @@ class ChessClient:
 
         cx = px + pw // 2
 
-        turn = "Blancas" if self.board.turn == chess.WHITE else "Negras"
         my_turn = (self.board.turn == chess.WHITE and self.my_color == "white") or \
                    (self.board.turn == chess.BLACK and self.my_color == "black")
-        turn_text = f"Turno: {turn}"
         if self.state == "playing":
-            if my_turn:
-                turn_text += " (Tú)"
-            else:
-                turn_text += " (Oponente)"
+            turn_text = "Tu turno" if my_turn else "Turno del otro jugador"
+        else:
+            turn_text = "Turno: Blancas" if self.board.turn == chess.WHITE else "Turno: Negras"
         t_surf = self.font_med.render(turn_text, True, COLOR_TEXT)
         self.screen.blit(t_surf, t_surf.get_rect(midtop=(cx, 34)))
 
-        color_label = "Blancas" if self.my_color == "white" else "Negras" if self.my_color else "—"
-        c_surf = self.font_small.render(f"Eres: {color_label}", True, (180, 180, 180))
-        self.screen.blit(c_surf, c_surf.get_rect(midtop=(cx, 66)))
+        if self.my_color:
+            circle_color = (245, 245, 245) if self.my_color == "white" else (40, 40, 40)
+            circle_y = 64
+            pygame.draw.circle(self.screen, circle_color, (cx - 30, circle_y + 10), 10)
+            pygame.draw.circle(self.screen, (180, 180, 180), (cx - 30, circle_y + 10), 10, 1)
+            color_label = "Blancas" if self.my_color == "white" else "Negras"
+            c_surf = self.font_small.render(color_label, True, (180, 180, 180))
+            self.screen.blit(c_surf, (cx - 14, circle_y))
 
         pygame.draw.line(self.screen, (80, 80, 95), (px + 15, 98), (px + pw - 15, 98), 1)
 

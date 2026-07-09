@@ -2,10 +2,10 @@ import pygame
 
 SERVER_URL = "wss://ajedrez-online-server.fly.dev"
 
-WINDOW_WIDTH = 900
-WINDOW_HEIGHT = 640
+WINDOW_WIDTH = 1100
+WINDOW_HEIGHT = 740
 
-BOARD_SIZE = 480
+BOARD_SIZE = 560
 SQUARE_SIZE = BOARD_SIZE // 8
 BOARD_X = 40
 BOARD_Y = 40
