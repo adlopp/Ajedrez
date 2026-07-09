@@ -10,16 +10,16 @@ def square_to_display(sq, perspective):
     rank = sq // 8
     file = sq % 8
     if perspective == "black":
-        return (7 - rank, 7 - file)
+        return (rank, 7 - file)
     else:
         return (7 - rank, file)
 
 
 def display_to_square(row, col, perspective):
     if perspective == "black":
-        return (7 - row) * 8 + (7 - col)
+        return row * 8 + (7 - col)
     else:
-        return row * 8 + col
+        return (7 - row) * 8 + col
 
 
 def get_square_rect(row, col):
@@ -157,7 +157,7 @@ class ChessClient:
             return
 
         if self.state == "joining_room":
-            btn_rect = pygame.Rect(WINDOW_WIDTH//2-80, 390, 160, 44)
+            btn_rect = pygame.Rect(WINDOW_WIDTH//2-80, 290, 160, 44)
             if btn_rect.collidepoint(pos) and self.input_code:
                 self.do_join_room(self.input_code)
 
@@ -385,18 +385,21 @@ class ChessClient:
                 self.state = "joining_room"
 
         elif t == "opponent_joined":
-            self.my_color = "white"
-            self.perspective = "white"
+            self.my_color = msg["color"]
+            self.perspective = self.my_color
             self.opponent_connected = True
+            self.board.turn = chess.BLACK
             self.state = "playing"
-            self.status_text = "¡Oponente conectado! Blancas: Tú"
-            self.add_message("¡Oponente conectado! Juegas con Blancas")
+            c = "Blancas" if self.my_color == "white" else "Negras"
+            self.status_text = f"¡Oponente conectado! {c}: Tú"
+            self.add_message(f"¡Oponente conectado! Juegas con {c}")
             self.update_game_buttons()
 
         elif t == "game_start":
             self.my_color = msg["color"]
             self.perspective = self.my_color
             self.opponent_connected = True
+            self.board.turn = chess.BLACK
             self.state = "playing"
             c = "Blancas" if self.my_color == "white" else "Negras"
             self.status_text = f"¡Partida iniciada! {c}: Tú"
@@ -476,6 +479,7 @@ class ChessClient:
 
     def reset_game(self):
         self.board = chess.Board()
+        self.board.turn = chess.BLACK
         self.selected = None
         self.legal_targets = set()
         self.last_move = None
@@ -521,19 +525,30 @@ class ChessClient:
 
     def update_game_buttons(self):
         self.buttons_game = []
+        cx = PANEL_X + PANEL_WIDTH // 2
+        by = WINDOW_HEIGHT - 130
+        bw = 140
         if self.state == "playing":
-            self.buttons_game.append(Button((PANEL_X, WINDOW_HEIGHT-120, 130, 36), "Rendirse", COLOR_BUTTON_RED, COLOR_TEXT))
+            self.buttons_game.append(
+                Button((cx - bw//2, by, bw, 36), "Rendirse", COLOR_BUTTON_RED, COLOR_TEXT))
             if self.draw_received:
-                self.buttons_game.append(Button((PANEL_X, WINDOW_HEIGHT-75, 130, 36), "Aceptar Tablas", COLOR_BUTTON_GREEN, COLOR_TEXT))
-                self.buttons_game.append(Button((PANEL_X + 140, WINDOW_HEIGHT-75, 130, 36), "Rechazar Tablas", COLOR_BUTTON_RED, COLOR_TEXT))
+                self.buttons_game.append(
+                    Button((cx - bw - 10, by + 46, bw, 36), "Aceptar Tablas", COLOR_BUTTON_GREEN, COLOR_TEXT))
+                self.buttons_game.append(
+                    Button((cx + 10, by + 46, bw, 36), "Rechazar Tablas", COLOR_BUTTON_RED, COLOR_TEXT))
             elif not self.draw_offered:
-                self.buttons_game.append(Button((PANEL_X, WINDOW_HEIGHT-75, 130, 36), "Ofrecer Tablas", COLOR_BUTTON, COLOR_TEXT))
+                self.buttons_game.append(
+                    Button((cx - bw//2, by + 46, bw, 36), "Ofrecer Tablas", COLOR_BUTTON, COLOR_TEXT))
         elif self.state == "game_over":
-            self.buttons_game.append(Button((PANEL_X, WINDOW_HEIGHT-120, 150, 36), "Ofrecer Revancha", COLOR_BUTTON_GREEN, COLOR_TEXT))
+            self.buttons_game.append(
+                Button((cx - bw//2, by, bw, 36), "Ofrecer Revancha", COLOR_BUTTON_GREEN, COLOR_TEXT))
             if self.rematch_offered_by == "opponent":
-                self.buttons_game.append(Button((PANEL_X, WINDOW_HEIGHT-75, 150, 36), "Aceptar Revancha", COLOR_BUTTON_GREEN, COLOR_TEXT))
-                self.buttons_game.append(Button((PANEL_X + 160, WINDOW_HEIGHT-75, 150, 36), "Rechazar Revancha", COLOR_BUTTON_RED, COLOR_TEXT))
-            self.buttons_game.append(Button((WINDOW_WIDTH-160, 20, 140, 36), "Volver al Menú", COLOR_BUTTON_GRAY, COLOR_TEXT))
+                self.buttons_game.append(
+                    Button((cx - bw - 10, by + 46, bw, 36), "Aceptar Revancha", COLOR_BUTTON_GREEN, COLOR_TEXT))
+                self.buttons_game.append(
+                    Button((cx + 10, by + 46, bw, 36), "Rechazar Revancha", COLOR_BUTTON_RED, COLOR_TEXT))
+            self.buttons_game.append(
+                Button((cx - bw//2, by + 92, bw, 36), "Volver al Menú", COLOR_BUTTON_GRAY, COLOR_TEXT))
 
     def draw(self):
         self.screen.fill(COLOR_BG)
@@ -552,73 +567,94 @@ class ChessClient:
                 self.draw_promo_dialog()
 
     def draw_menu(self):
-        title = self.font_large.render("♚ AJEDREZ ONLINE ♔", True, COLOR_TEXT)
-        self.screen.blit(title, title.get_rect(center=(WINDOW_WIDTH//2, 120)))
-        sub = self.font_small.render("Juega contra un amigo en tiempo real", True, (180, 180, 180))
-        self.screen.blit(sub, sub.get_rect(center=(WINDOW_WIDTH//2, 170)))
+        pygame.draw.rect(self.screen, COLOR_PANEL,
+                         (WINDOW_WIDTH//2 - 200, 60, 400, 420), border_radius=14)
+
+        title = self.font_large.render("♚ AJEDREZ ♔", True, (240, 240, 240))
+        self.screen.blit(title, title.get_rect(center=(WINDOW_WIDTH//2, 110)))
+        title2 = self.font_med.render("ONLINE", True, (180, 180, 190))
+        self.screen.blit(title2, title2.get_rect(center=(WINDOW_WIDTH//2, 150)))
+        sub = self.font_small.render("Juega contra un amigo en tiempo real", True, (150, 150, 160))
+        self.screen.blit(sub, sub.get_rect(center=(WINDOW_WIDTH//2, 195)))
+
+        pygame.draw.line(self.screen, (80, 80, 95),
+                         (WINDOW_WIDTH//2 - 150, 220), (WINDOW_WIDTH//2 + 150, 220), 1)
 
         for b in self.buttons_menu:
             b.draw(self.screen, self.font_med)
 
         if self.error_text:
             err = self.font_small.render(self.error_text, True, (255, 100, 100))
-            self.screen.blit(err, err.get_rect(center=(WINDOW_WIDTH//2, 440)))
+            self.screen.blit(err, err.get_rect(center=(WINDOW_WIDTH//2, 430)))
 
     def draw_creating_room(self):
-        title = self.font_large.render("CREAR SALA", True, COLOR_TEXT)
-        self.screen.blit(title, title.get_rect(center=(WINDOW_WIDTH//2, 100)))
+        pygame.draw.rect(self.screen, COLOR_PANEL,
+                         (WINDOW_WIDTH//2 - 200, 60, 400, 400), border_radius=14)
+
+        title = self.font_med.render("CREAR SALA", True, COLOR_TEXT)
+        self.screen.blit(title, title.get_rect(center=(WINDOW_WIDTH//2, 110)))
 
         if self.room_code:
-            code_text = self.font_large.render(self.room_code, True, COLOR_BUTTON_GREEN)
+            pygame.draw.rect(self.screen, (40, 45, 55),
+                             (WINDOW_WIDTH//2 - 120, 180, 240, 60), border_radius=8)
+            code_text = self.font_large.render(self.room_code, True, (100, 220, 100))
             self.screen.blit(code_text, code_text.get_rect(center=(WINDOW_WIDTH//2, 210)))
-            inst = self.font_small.render("Comparte este código con tu amigo", True, (180, 180, 180))
-            self.screen.blit(inst, inst.get_rect(center=(WINDOW_WIDTH//2, 260)))
-            waiting = self.font_med.render("Esperando oponente...", True, COLOR_TEXT)
+            inst = self.font_small.render("Comparte este código con tu amigo", True, (160, 160, 170))
+            self.screen.blit(inst, inst.get_rect(center=(WINDOW_WIDTH//2, 270)))
+            dots = ".".join(["."] * ((pygame.time.get_ticks() // 800) % 4))
+            waiting = self.font_med.render(f"Esperando oponente{dots}", True, (180, 180, 180))
             self.screen.blit(waiting, waiting.get_rect(center=(WINDOW_WIDTH//2, 330)))
         else:
-            loading = self.font_med.render("Conectando...", True, COLOR_TEXT)
-            self.screen.blit(loading, loading.get_rect(center=(WINDOW_WIDTH//2, 250)))
+            dots = ".".join(["."] * ((pygame.time.get_ticks() // 600) % 4))
+            loading = self.font_med.render(f"Conectando{dots}", True, COLOR_TEXT)
+            self.screen.blit(loading, loading.get_rect(center=(WINDOW_WIDTH//2, 230)))
             if self.error_text:
                 err = self.font_small.render(self.error_text, True, (255, 100, 100))
-                self.screen.blit(err, err.get_rect(center=(WINDOW_WIDTH//2, 310)))
+                self.screen.blit(err, err.get_rect(center=(WINDOW_WIDTH//2, 290)))
 
-        back = self.font_small.render("Presiona ESC para volver", True, (140, 140, 140))
-        self.screen.blit(back, back.get_rect(center=(WINDOW_WIDTH//2, 500)))
+        back = self.font_small.render("ESC para volver", True, (130, 130, 140))
+        self.screen.blit(back, back.get_rect(center=(WINDOW_WIDTH//2, 440)))
 
     def draw_joining_room(self):
-        title = self.font_large.render("UNIRSE A SALA", True, COLOR_TEXT)
-        self.screen.blit(title, title.get_rect(center=(WINDOW_WIDTH//2, 100)))
+        pygame.draw.rect(self.screen, COLOR_PANEL,
+                         (WINDOW_WIDTH//2 - 200, 60, 400, 400), border_radius=14)
 
-        prompt = self.font_med.render("Ingresa el código de la sala:", True, COLOR_TEXT)
-        self.screen.blit(prompt, prompt.get_rect(center=(WINDOW_WIDTH//2, 200)))
+        title = self.font_med.render("UNIRSE A SALA", True, COLOR_TEXT)
+        self.screen.blit(title, title.get_rect(center=(WINDOW_WIDTH//2, 110)))
 
-        input_rect = pygame.Rect(WINDOW_WIDTH//2-120, 250, 240, 44)
-        pygame.draw.rect(self.screen, COLOR_INPUT_BG, input_rect, border_radius=6)
-        pygame.draw.rect(self.screen, (120, 120, 140), input_rect, 2, border_radius=6)
+        prompt = self.font_small.render("Ingresa el código de la sala:", True, (180, 180, 180))
+        self.screen.blit(prompt, prompt.get_rect(center=(WINDOW_WIDTH//2, 190)))
 
-        code_display = self.input_code + ("|" if pygame.time.get_ticks() % 1000 < 500 else " ")
+        input_rect = pygame.Rect(WINDOW_WIDTH//2-120, 220, 240, 44)
+        pygame.draw.rect(self.screen, COLOR_INPUT_BG, input_rect, border_radius=8)
+        border_color = (100, 180, 255) if self.input_code else (100, 100, 120)
+        pygame.draw.rect(self.screen, border_color, input_rect, 2, border_radius=8)
+
+        cursor = "|" if pygame.time.get_ticks() % 1000 < 500 else " "
+        code_display = self.input_code + cursor
         surf = self.font_large.render(code_display, True, COLOR_TEXT)
         self.screen.blit(surf, surf.get_rect(center=input_rect.center))
 
-        btn_rect = pygame.Rect(WINDOW_WIDTH//2-80, 320, 160, 44)
+        btn_rect = pygame.Rect(WINDOW_WIDTH//2-80, 290, 160, 44)
         btn_color = COLOR_BUTTON if self.input_code else COLOR_BUTTON_GRAY
-        pygame.draw.rect(self.screen, btn_color, btn_rect, border_radius=6)
+        pygame.draw.rect(self.screen, btn_color, btn_rect, border_radius=8)
         btn_surf = self.font_med.render("Unirse", True, COLOR_TEXT)
         self.screen.blit(btn_surf, btn_surf.get_rect(center=btn_rect.center))
 
         if self.error_text:
             err = self.font_small.render(self.error_text, True, (255, 100, 100))
-            self.screen.blit(err, err.get_rect(center=(WINDOW_WIDTH//2, 400)))
+            self.screen.blit(err, err.get_rect(center=(WINDOW_WIDTH//2, 370)))
 
-        back = self.font_small.render("ESC para volver", True, (140, 140, 140))
-        self.screen.blit(back, back.get_rect(center=(WINDOW_WIDTH//2, 500)))
+        back = self.font_small.render("ESC para volver", True, (130, 130, 140))
+        self.screen.blit(back, back.get_rect(center=(WINDOW_WIDTH//2, 440)))
 
     def draw_waiting(self):
-        title = self.font_med.render("Conectando...", True, COLOR_TEXT)
-        self.screen.blit(title, title.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2)))
+        dots = ".".join(["."] * ((pygame.time.get_ticks() // 600) % 4))
+        title = self.font_med.render(f"Conectando{dots}", True, COLOR_TEXT)
+        self.screen.blit(title, title.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 - 20)))
         if self.error_text:
             err = self.font_small.render(self.error_text, True, (255, 100, 100))
-            self.screen.blit(err, err.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2+60)))
+            self.screen.blit(err, err.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 + 40)))
 
     def draw_game(self):
         self.draw_board()
@@ -627,6 +663,10 @@ class ChessClient:
             self.draw_game_over_overlay()
 
     def draw_board(self):
+        bx, by = BOARD_X - 4, BOARD_Y - 4
+        bs = BOARD_SIZE + 8
+        pygame.draw.rect(self.screen, (100, 90, 80), (bx, by, bs, bs), border_radius=4)
+
         for row in range(8):
             for col in range(8):
                 color = COLOR_LIGHT if (row + col) % 2 == 0 else COLOR_DARK
@@ -648,11 +688,14 @@ class ChessClient:
 
         for tr, tc in self.legal_targets:
             rect = get_square_rect(tr, tc)
-            pygame.draw.circle(self.screen, (100, 140, 80, 180), rect.center, SQUARE_SIZE//6, 2 if self.board.piece_at(display_to_square(tr, tc, self.perspective)) else 0)
-            if not self.board.piece_at(display_to_square(tr, tc, self.perspective)):
+            has_piece = self.board.piece_at(display_to_square(tr, tc, self.perspective))
+            if has_piece:
+                pygame.draw.rect(self.screen, (180, 100, 80, 200), rect, 4)
+            else:
                 s = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)
                 s.fill(COLOR_HIGHLIGHT)
                 self.screen.blit(s, rect)
+                pygame.draw.circle(self.screen, (100, 140, 80), rect.center, SQUARE_SIZE//8)
 
         for row in range(8):
             for col in range(8):
@@ -660,24 +703,33 @@ class ChessClient:
                 piece = self.board.piece_at(sq)
                 if piece:
                     sym = PIECE_UNICODE.get(piece.symbol(), '?')
-                    color = (50, 50, 50) if piece.color else (240, 240, 240)
+                    color = (40, 40, 40) if piece.color else (245, 245, 245)
                     f = self.font_piece_small if piece.piece_type != chess.KING else self.font_piece
-                    surf = f.render(sym, True, color)
                     rect = get_square_rect(row, col)
+                    if not piece.color:
+                        outline = f.render(sym, True, (30, 30, 30))
+                        orect = outline.get_rect(center=rect.center)
+                        for dx, dy in (-2, 0), (2, 0), (0, -2), (0, 2):
+                            self.screen.blit(outline, orect.move(dx, dy))
+                    surf = f.render(sym, True, color)
                     self.screen.blit(surf, surf.get_rect(center=rect.center))
 
         for i, label in enumerate(['a','b','c','d','e','f','g','h']):
             col = i if self.perspective == "white" else 7 - i
-            s = self.font_tiny.render(label, True, (180, 180, 180))
+            s = self.font_tiny.render(label, True, (160, 155, 145))
             self.screen.blit(s, (BOARD_X + col*SQUARE_SIZE + SQUARE_SIZE-14, BOARD_Y + BOARD_SIZE + 4))
 
         for i in range(8):
             rank = 8 - i if self.perspective == "white" else i + 1
-            s = self.font_tiny.render(str(rank), True, (180, 180, 180))
+            s = self.font_tiny.render(str(rank), True, (160, 155, 145))
             self.screen.blit(s, (BOARD_X - 16, BOARD_Y + i*SQUARE_SIZE + 4))
 
     def draw_panel(self):
-        pygame.draw.rect(self.screen, COLOR_PANEL, (PANEL_X, 20, PANEL_WIDTH, WINDOW_HEIGHT-40), border_radius=8)
+        px, py = PANEL_X, 20
+        pw, ph = PANEL_WIDTH, WINDOW_HEIGHT - 40
+        pygame.draw.rect(self.screen, COLOR_PANEL, (px, py, pw, ph), border_radius=10)
+
+        cx = px + pw // 2
 
         turn = "Blancas" if self.board.turn == chess.WHITE else "Negras"
         my_turn = (self.board.turn == chess.WHITE and self.my_color == "white") or \
@@ -689,40 +741,45 @@ class ChessClient:
             else:
                 turn_text += " (Oponente)"
         t_surf = self.font_med.render(turn_text, True, COLOR_TEXT)
-        self.screen.blit(t_surf, (PANEL_X + 10, 30))
+        self.screen.blit(t_surf, t_surf.get_rect(midtop=(cx, 34)))
 
         color_label = "Blancas" if self.my_color == "white" else "Negras" if self.my_color else "—"
         c_surf = self.font_small.render(f"Eres: {color_label}", True, (180, 180, 180))
-        self.screen.blit(c_surf, (PANEL_X + 10, 65))
+        self.screen.blit(c_surf, c_surf.get_rect(midtop=(cx, 66)))
 
-        y = 110
+        pygame.draw.line(self.screen, (80, 80, 95), (px + 15, 98), (px + pw - 15, 98), 1)
+
+        y = 112
         if self.captured_white or self.captured_black:
-            cap_title = self.font_small.render("Capturas:", True, (180, 180, 180))
-            self.screen.blit(cap_title, (PANEL_X + 10, y))
-            y += 25
+            cap_title = self.font_small.render("Capturas", True, (160, 160, 170))
+            self.screen.blit(cap_title, cap_title.get_rect(midtop=(cx, y)))
+            y += 24
+            cap_pieces = []
             if self.captured_black:
-                cs = self.font_tiny.render(' '.join(self.captured_black[:12]), True, COLOR_TEXT)
-                self.screen.blit(cs, (PANEL_X + 10, y))
-                y += 22
+                cap_pieces.extend(self.captured_black[:10])
             if self.captured_white:
-                cs = self.font_tiny.render(' '.join(self.captured_white[:12]), True, COLOR_TEXT)
-                self.screen.blit(cs, (PANEL_X + 10, y))
+                cap_pieces.extend(self.captured_white[:10])
+            if cap_pieces:
+                cs = self.font_tiny.render(' '.join(cap_pieces), True, COLOR_TEXT)
+                self.screen.blit(cs, cs.get_rect(midtop=(cx, y)))
                 y += 22
+            y += 6
+            pygame.draw.line(self.screen, (80, 80, 95), (px + 15, y), (px + pw - 15, y), 1)
             y += 10
 
-        log_title = self.font_small.render("Historial:", True, (180, 180, 180))
-        self.screen.blit(log_title, (PANEL_X + 10, y))
-        y += 25
+        log_title = self.font_small.render("Historial", True, (160, 160, 170))
+        self.screen.blit(log_title, log_title.get_rect(midtop=(cx, y)))
+        y += 26
 
-        max_log = (WINDOW_HEIGHT - y - 160) // 18
+        max_log = (WINDOW_HEIGHT - y - 170) // 17
         start = max(0, len(self.move_log) - max_log)
         for i in range(start, len(self.move_log)):
             num = (i // 2) + 1
             prefix = f"{num}." if i % 2 == 0 else ""
             txt = f"{prefix} {self.move_log[i]}"
             s = self.font_tiny.render(txt, True, (200, 200, 200))
-            self.screen.blit(s, (PANEL_X + 12, y))
-            y += 18
+            self.screen.blit(s, (px + 14, y))
+            y += 17
 
         if self.state != "game_over":
             for b in self.buttons_game:
@@ -730,44 +787,49 @@ class ChessClient:
 
     def draw_game_over_overlay(self):
         s = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
-        s.fill((0, 0, 0, 160))
+        s.fill((0, 0, 0, 180))
         self.screen.blit(s, (0, 0))
 
-        box_w = 400
-        box_h = 180 if not self.buttons_game else 240
+        box_w = 440
+        box_h = 200 if not self.buttons_game else 260
         bx = (WINDOW_WIDTH - box_w) // 2
         by = (WINDOW_HEIGHT - box_h) // 2
-        pygame.draw.rect(self.screen, COLOR_PANEL, (bx, by, box_w, box_h), border_radius=12)
-        pygame.draw.rect(self.screen, (120, 120, 140), (bx, by, box_w, box_h), 2, border_radius=12)
+        pygame.draw.rect(self.screen, (55, 55, 70), (bx, by, box_w, box_h), border_radius=14)
+        pygame.draw.rect(self.screen, (130, 130, 150), (bx, by, box_w, box_h), 2, border_radius=14)
 
         result = self.font_large.render(self.game_result_text, True, COLOR_TEXT)
         self.screen.blit(result, result.get_rect(center=(WINDOW_WIDTH//2, by + 50)))
 
-        sub = self.font_small.render("Presiona ESC para salir", True, (180, 180, 180))
-        self.screen.blit(sub, sub.get_rect(center=(WINDOW_WIDTH//2, by + 100)))
+        sub = self.font_small.render("Presiona ESC para salir", True, (160, 160, 170))
+        self.screen.blit(sub, sub.get_rect(center=(WINDOW_WIDTH//2, by + 90)))
 
         for i, btn in enumerate(self.buttons_game):
-            btn.rect = pygame.Rect(bx + 20 + (i % 2) * 190, by + 130 + (i // 2) * 45, 180, 36)
+            btn.rect = pygame.Rect(bx + 20 + (i % 2) * 210, by + 125 + (i // 2) * 50, 200, 40)
             btn.draw(self.screen, self.font_small)
 
     def draw_promo_dialog(self):
         s = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
-        s.fill((0, 0, 0, 160))
+        s.fill((0, 0, 0, 180))
         self.screen.blit(s, (0, 0))
+
+        box_w, box_h = 280, 130
+        bx, by = (WINDOW_WIDTH - box_w)//2, (WINDOW_HEIGHT - box_h)//2
+        pygame.draw.rect(self.screen, (55, 55, 70), (bx, by, box_w, box_h), border_radius=12)
+        pygame.draw.rect(self.screen, (130, 130, 150), (bx, by, box_w, box_h), 2, border_radius=12)
 
         pieces = [chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT]
         symbols = ['♛', '♜', '♝', '♞'] if self.my_color == "black" else ['♕', '♖', '♗', '♘']
         label = self.font_small.render("Elegir promoción:", True, COLOR_TEXT)
-        self.screen.blit(label, label.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 - 50)))
+        self.screen.blit(label, label.get_rect(center=(WINDOW_WIDTH//2, by + 30)))
 
         for i, (pt, sym) in enumerate(zip(pieces, symbols)):
-            x = WINDOW_WIDTH//2 - 90 + i * 55
-            y = WINDOW_HEIGHT//2 - 10
-            r = pygame.Rect(x, y, 45, 45)
-            pygame.draw.rect(self.screen, COLOR_PANEL, r, border_radius=4)
-            pygame.draw.rect(self.screen, (120, 120, 140), r, 2, border_radius=4)
-            color = (50, 50, 50) if self.my_color == "black" else (240, 240, 240)
-            surf = self.font_med.render(sym, True, color)
+            x = bx + 20 + i * 60
+            y = by + 55
+            r = pygame.Rect(x, y, 50, 50)
+            pygame.draw.rect(self.screen, (45, 45, 60), r, border_radius=6)
+            pygame.draw.rect(self.screen, (130, 130, 150), r, 2, border_radius=6)
+            color = (40, 40, 40) if self.my_color == "black" else (245, 245, 245)
+            surf = self.font_large.render(sym, True, color)
             self.screen.blit(surf, surf.get_rect(center=r.center))
 
 

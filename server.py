@@ -34,8 +34,10 @@ async def handler(ws):
                 else:
                     room["players"].append(ws)
                     my_room = code
-                    await room["players"][0].send(json.dumps({"type": "opponent_joined", "color": "white"}))
-                    await room["players"][1].send(json.dumps({"type": "game_start", "color": "black"}))
+                    colors = ["white", "black"]
+                    random.shuffle(colors)
+                    await room["players"][0].send(json.dumps({"type": "opponent_joined", "color": colors[0]}))
+                    await room["players"][1].send(json.dumps({"type": "game_start", "color": colors[1]}))
 
             elif t == "move":
                 if my_room and my_room in rooms:
