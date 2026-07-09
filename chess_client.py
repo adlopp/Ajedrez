@@ -129,6 +129,11 @@ class ChessClient:
         self.game_result_text = ""
 
         self.messages = []
+        self.muted = False
+
+    def play_sound(self, snd):
+        if not self.muted:
+            snd.play()
 
         self.buttons_menu = [
             Button((WINDOW_WIDTH//2-120, 260, 240, 50), "Crear Sala", COLOR_BUTTON_GREEN),
@@ -205,7 +210,9 @@ class ChessClient:
 
         if self.state == "playing":
             x, y = pos
-            if BOARD_X <= x < BOARD_X + BOARD_SIZE and BOARD_Y <= y < BOARD_Y + BOARD_SIZE:
+            if hasattr(self, 'mute_rect') and self.mute_rect.collidepoint(pos):
+                self.muted = not self.muted
+            elif BOARD_X <= x < BOARD_X + BOARD_SIZE and BOARD_Y <= y < BOARD_Y + BOARD_SIZE:
                 col = (x - BOARD_X) // SQUARE_SIZE
                 row = (y - BOARD_Y) // SQUARE_SIZE
                 self.handle_board_click(row, col)
@@ -321,12 +328,12 @@ class ChessClient:
             if p:
                 sym = PIECE_UNICODE.get(p.symbol(), '?')
                 (self.captured_black if p.color == chess.BLACK else self.captured_white).append(sym)
-                self.snd_capture.play()
+                self.play_sound(self.snd_capture)
             else:
-                self.snd_move.play()
+                self.play_sound(self.snd_move)
             self.board.push(move)
             if self.board.is_check():
-                self.snd_check.play()
+                self.play_sound(self.snd_check)
             self.last_move = (from_sq, to_sq)
             self.selected = None
             self.legal_targets = set()
@@ -336,7 +343,7 @@ class ChessClient:
 
             outcome = self.board.outcome()
             if outcome:
-                self.snd_game_over.play()
+                self.play_sound(self.snd_game_over)
                 self.handle_game_end(outcome)
             else:
                 self.draw_offered = False
@@ -460,17 +467,17 @@ class ChessClient:
                 if p:
                     sym = PIECE_UNICODE.get(p.symbol(), '?')
                     (self.captured_black if p.color == chess.BLACK else self.captured_white).append(sym)
-                    self.snd_capture.play()
+                    self.play_sound(self.snd_capture)
                 else:
-                    self.snd_move.play()
+                    self.play_sound(self.snd_move)
                 self.board.push(move)
                 if self.board.is_check():
-                    self.snd_check.play()
+                    self.play_sound(self.snd_check)
                 self.last_move = (move.from_square, move.to_square)
                 self.move_log.append(san)
                 outcome = self.board.outcome()
                 if outcome:
-                    self.snd_game_over.play()
+                    self.play_sound(self.snd_game_over)
                     self.handle_game_end(outcome)
             except Exception as e:
                 self.add_message(f"Error al procesar movimiento: {e}")
@@ -757,7 +764,7 @@ class ChessClient:
                     color = (40, 40, 40) if piece.color else (245, 245, 245)
                     f = self.font_piece_small if piece.piece_type != chess.KING else self.font_piece
                     rect = get_square_rect(row, col)
-                    outline_color = (170, 160, 150) if piece.color else (100, 90, 80)
+                    outline_color = (100, 90, 80)
                     outline = f.render(sym, True, outline_color)
                     orect = outline.get_rect(center=rect.center)
                     for dx, dy in (-2, 0), (2, 0), (0, -2), (0, 2), (-2, -2), (2, -2), (-2, 2), (2, 2):
@@ -774,6 +781,14 @@ class ChessClient:
             rank = 8 - i if self.perspective == "white" else i + 1
             s = self.font_tiny.render(str(rank), True, (160, 155, 145))
             self.screen.blit(s, (BOARD_X - 16, BOARD_Y + i*SQUARE_SIZE + 4))
+
+        mute_text = "Silenciar" if not self.muted else "Sonido"
+        mute_label = self.font_tiny.render(mute_text, True, (160, 155, 145))
+        mx = BOARD_X + BOARD_SIZE - mute_label.get_width() - 4
+        my = BOARD_Y + BOARD_SIZE + 4
+        self.mute_rect = pygame.Rect(mx - 4, my - 2, mute_label.get_width() + 8, mute_label.get_height() + 4)
+        pygame.draw.rect(self.screen, (70, 70, 80), self.mute_rect, border_radius=4)
+        self.screen.blit(mute_label, (mx, my))
 
     def draw_panel(self):
         px, py = PANEL_X, 20
@@ -793,12 +808,13 @@ class ChessClient:
 
         if self.my_color:
             circle_color = (245, 245, 245) if self.my_color == "white" else (40, 40, 40)
-            circle_y = 72
-            pygame.draw.circle(self.screen, circle_color, (cx - 30, circle_y + 10), 10)
-            pygame.draw.circle(self.screen, (180, 180, 180), (cx - 30, circle_y + 10), 10, 1)
             color_label = "Blancas" if self.my_color == "white" else "Negras"
             c_surf = self.font_small.render(color_label, True, (180, 180, 180))
-            self.screen.blit(c_surf, (cx - 14, circle_y))
+            c_rect = c_surf.get_rect(midtop=(cx, 72))
+            self.screen.blit(c_surf, c_rect)
+            circle_y = c_rect.centery
+            pygame.draw.circle(self.screen, circle_color, (cx - c_rect.width // 2 - 18, circle_y), 10)
+            pygame.draw.circle(self.screen, (180, 180, 180), (cx - c_rect.width // 2 - 18, circle_y), 10, 1)
 
         pygame.draw.line(self.screen, (80, 80, 95), (px + 15, 98), (px + pw - 15, 98), 1)
 
@@ -821,7 +837,7 @@ class ChessClient:
                 y += 22
             y += 6
             pygame.draw.line(self.screen, (80, 80, 95), (px + 15, y), (px + pw - 15, y), 1)
-            y += 10
+            y += 16
 
         log_title = self.font_small.render("Historial", True, (160, 160, 170))
         self.screen.blit(log_title, log_title.get_rect(midtop=(cx, y)))
