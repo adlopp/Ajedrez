@@ -222,6 +222,8 @@ class ChessClient:
                         self.handle_game_button(b.text)
 
         if self.state == "game_over":
+            if hasattr(self, 'mute_rect') and self.mute_rect.collidepoint(pos):
+                self.muted = not self.muted
             for b in self.buttons_game:
                 if b.clicked(pos):
                     self.handle_game_button(b.text)
@@ -775,20 +777,30 @@ class ChessClient:
         for i, label in enumerate(['a','b','c','d','e','f','g','h']):
             col = i if self.perspective == "white" else 7 - i
             s = self.font_tiny.render(label, True, (160, 155, 145))
-            self.screen.blit(s, (BOARD_X + col*SQUARE_SIZE + SQUARE_SIZE-14, BOARD_Y + BOARD_SIZE + 4))
+            sx = BOARD_X + col * SQUARE_SIZE + SQUARE_SIZE // 2 - s.get_width() // 2
+            self.screen.blit(s, (sx, BOARD_Y + BOARD_SIZE + 6))
 
         for i in range(8):
             rank = 8 - i if self.perspective == "white" else i + 1
             s = self.font_tiny.render(str(rank), True, (160, 155, 145))
-            self.screen.blit(s, (BOARD_X - 16, BOARD_Y + i*SQUARE_SIZE + 4))
+            sy = BOARD_Y + i * SQUARE_SIZE + SQUARE_SIZE // 2 - s.get_height() // 2
+            self.screen.blit(s, (BOARD_X - 20, sy))
 
-        mute_text = "Silenciar" if not self.muted else "Sonido"
-        mute_label = self.font_tiny.render(mute_text, True, (160, 155, 145))
-        mx = BOARD_X + BOARD_SIZE - mute_label.get_width() - 4
-        my = BOARD_Y + BOARD_SIZE + 4
-        self.mute_rect = pygame.Rect(mx - 4, my - 2, mute_label.get_width() + 8, mute_label.get_height() + 4)
-        pygame.draw.rect(self.screen, (70, 70, 80), self.mute_rect, border_radius=4)
-        self.screen.blit(mute_label, (mx, my))
+        mute_color = (180, 60, 60) if self.muted else (100, 180, 100)
+        btn_size = 36
+        btn_x = BOARD_X + BOARD_SIZE // 2
+        btn_y = BOARD_Y + BOARD_SIZE + 28
+        self.mute_rect = pygame.Rect(btn_x - btn_size // 2, btn_y - btn_size // 2, btn_size, btn_size)
+        pygame.draw.circle(self.screen, (70, 70, 80), (btn_x, btn_y), btn_size // 2)
+        pygame.draw.circle(self.screen, mute_color, (btn_x, btn_y), btn_size // 2, 2)
+        spk = btn_x - 4
+        pygame.draw.rect(self.screen, (200, 200, 200), (spk - 2, btn_y - 4, 5, 8))
+        pts_l = [(spk + 3, btn_y - 8), (spk + 10, btn_y - 13), (spk + 10, btn_y + 13), (spk + 3, btn_y + 8)]
+        pygame.draw.polygon(self.screen, (200, 200, 200), pts_l)
+        if not self.muted:
+            for r in (14, 19):
+                arc_rect = pygame.Rect(spk - r, btn_y - r, r * 2, r * 2)
+                pygame.draw.arc(self.screen, (200, 200, 200), arc_rect, -0.9, 0.9, 2)
 
     def draw_panel(self):
         px, py = PANEL_X, 20
