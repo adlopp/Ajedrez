@@ -789,7 +789,7 @@ class ChessClient:
         mute_color = (180, 60, 60) if self.muted else (100, 180, 100)
         btn_size = 36
         btn_x = BOARD_X + BOARD_SIZE // 2
-        btn_y = BOARD_Y + BOARD_SIZE + 28
+        btn_y = BOARD_Y + BOARD_SIZE + 48
         self.mute_rect = pygame.Rect(btn_x - btn_size // 2, btn_y - btn_size // 2, btn_size, btn_size)
         pygame.draw.circle(self.screen, (70, 70, 80), (btn_x, btn_y), btn_size // 2)
         pygame.draw.circle(self.screen, mute_color, (btn_x, btn_y), btn_size // 2, 2)
