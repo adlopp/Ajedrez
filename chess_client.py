@@ -131,16 +131,16 @@ class ChessClient:
         self.messages = []
         self.muted = False
 
-    def play_sound(self, snd):
-        if not self.muted:
-            snd.play()
-
         self.buttons_menu = [
             Button((WINDOW_WIDTH//2-120, 260, 240, 50), "Crear Sala", COLOR_BUTTON_GREEN),
             Button((WINDOW_WIDTH//2-120, 330, 240, 50), "Unirse a Sala"),
         ]
         self.buttons_game = []
         self.running = True
+
+    def play_sound(self, snd):
+        if not self.muted:
+            snd.play()
 
     def run(self):
         while self.running:
