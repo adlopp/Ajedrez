@@ -9,7 +9,9 @@ from constants import *
 from network import ChessNetwork
 
 
-def make_sound(frequency=440, duration=0.1, volume=0.5, fade=0.02):
+def make_sound(frequency=440, duration=0.1, volume=0.5, fade=0.02, harmonics=None):
+    if harmonics is None:
+        harmonics = [(1.0, 0), (0.5, 0), (0.25, 0)]
     sample_rate = 44100
     n_samples = int(sample_rate * duration)
     n_fade = int(sample_rate * fade)
@@ -21,11 +23,13 @@ def make_sound(frequency=440, duration=0.1, volume=0.5, fade=0.02):
             envelope = i / n_fade
         elif i > n_samples - n_fade:
             envelope = (n_samples - i) / n_fade
-        val = int(32767 * volume * envelope * math.sin(2 * math.pi * frequency * t))
-        buf.append(struct.pack('<h', val))
+        val = 0.0
+        for amp, detune in harmonics:
+            val += amp * math.sin(2 * math.pi * frequency * (1 + detune) * t)
+        val = max(-1.0, min(1.0, val / 1.5))
+        buf.append(struct.pack('<h', int(32767 * volume * envelope * val)))
     raw = b''.join(buf)
-    sound = pygame.mixer.Sound(buffer=raw)
-    return sound
+    return pygame.mixer.Sound(buffer=raw)
 
 
 def square_to_display(sq, perspective):
@@ -84,15 +88,16 @@ class ChessClient:
         pygame.display.set_caption("Ajedrez Online")
         self.clock = pygame.time.Clock()
 
-        self.snd_move = make_sound(600, 0.08, 0.4)
-        self.snd_capture = make_sound(400, 0.15, 0.5)
-        self.snd_check = make_sound(880, 0.2, 0.5)
-        self.snd_game_over = make_sound(300, 0.4, 0.5)
+        self.snd_move = make_sound(800, 0.06, 0.3, harmonics=[(1.0, 0), (0.4, 0.002), (0.2, -0.001)])
+        self.snd_capture = make_sound(500, 0.12, 0.4, harmonics=[(1.0, 0), (0.6, 0.005), (0.3, -0.003)])
+        self.snd_check = make_sound(1000, 0.15, 0.4, harmonics=[(1.0, 0), (0.7, 0.003), (0.4, -0.002)])
+        self.snd_game_over = make_sound(400, 0.5, 0.4, harmonics=[(1.0, 0), (0.5, 0.001), (0.3, 0.002), (0.15, -0.001)])
 
         self.font_large = pygame.font.SysFont("segoeui", 46)
         self.font_med = pygame.font.SysFont("segoeui", 30)
         self.font_small = pygame.font.SysFont("segoeui", 22)
         self.font_tiny = pygame.font.SysFont("segoeui", 18)
+        self.font_cap = pygame.font.SysFont("segoeuisymbol", 20)
         self.font_piece = pygame.font.SysFont("segoeuisymbol", 44)
         self.font_piece_small = pygame.font.SysFont("segoeuisymbol", 32)
 
@@ -708,7 +713,7 @@ class ChessClient:
     def draw_board(self):
         my_turn = (self.board.turn == chess.WHITE and self.my_color == "white") or \
                   (self.board.turn == chess.BLACK and self.my_color == "black")
-        border_color = (200, 60, 60) if (my_turn and self.state == "playing") else (100, 90, 80)
+        border_color = (150, 45, 45) if (my_turn and self.state == "playing") else (100, 90, 80)
         bx, by = BOARD_X - 6, BOARD_Y - 6
         bs = BOARD_SIZE + 12
         pygame.draw.rect(self.screen, border_color, (bx, by, bs, bs), border_radius=5)
@@ -752,7 +757,7 @@ class ChessClient:
                     color = (40, 40, 40) if piece.color else (245, 245, 245)
                     f = self.font_piece_small if piece.piece_type != chess.KING else self.font_piece
                     rect = get_square_rect(row, col)
-                    outline_color = (30, 30, 30) if piece.color else (100, 90, 80)
+                    outline_color = (170, 160, 150) if piece.color else (100, 90, 80)
                     outline = f.render(sym, True, outline_color)
                     orect = outline.get_rect(center=rect.center)
                     for dx, dy in (-2, 0), (2, 0), (0, -2), (0, 2), (-2, -2), (2, -2), (-2, 2), (2, 2):
@@ -788,7 +793,7 @@ class ChessClient:
 
         if self.my_color:
             circle_color = (245, 245, 245) if self.my_color == "white" else (40, 40, 40)
-            circle_y = 64
+            circle_y = 72
             pygame.draw.circle(self.screen, circle_color, (cx - 30, circle_y + 10), 10)
             pygame.draw.circle(self.screen, (180, 180, 180), (cx - 30, circle_y + 10), 10, 1)
             color_label = "Blancas" if self.my_color == "white" else "Negras"
@@ -808,8 +813,11 @@ class ChessClient:
             if self.captured_white:
                 cap_pieces.extend(self.captured_white[:10])
             if cap_pieces:
-                cs = self.font_tiny.render(' '.join(cap_pieces), True, COLOR_TEXT)
-                self.screen.blit(cs, cs.get_rect(midtop=(cx, y)))
+                cap_x = cx - len(cap_pieces) * 9
+                for sym in cap_pieces:
+                    cs = self.font_cap.render(sym, True, COLOR_TEXT)
+                    self.screen.blit(cs, cs.get_rect(midtop=(cap_x, y)))
+                    cap_x += 18
                 y += 22
             y += 6
             pygame.draw.line(self.screen, (80, 80, 95), (px + 15, y), (px + pw - 15, y), 1)
