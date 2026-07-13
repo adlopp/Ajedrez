@@ -443,7 +443,6 @@ class ChessClient:
             self.my_color = msg["color"]
             self.perspective = self.my_color
             self.opponent_connected = True
-            self.board.turn = chess.BLACK
             self.state = "playing"
             c = "Blancas" if self.my_color == "white" else "Negras"
             self.status_text = f"¡Oponente conectado! {c}: Tú"
@@ -454,7 +453,6 @@ class ChessClient:
             self.my_color = msg["color"]
             self.perspective = self.my_color
             self.opponent_connected = True
-            self.board.turn = chess.BLACK
             self.state = "playing"
             c = "Blancas" if self.my_color == "white" else "Negras"
             self.status_text = f"¡Partida iniciada! {c}: Tú"
@@ -552,7 +550,6 @@ class ChessClient:
 
     def reset_game(self):
         self.board = chess.Board()
-        self.board.turn = chess.BLACK
         self.selected = None
         self.legal_targets = set()
         self.last_move = None
@@ -817,18 +814,19 @@ class ChessClient:
             self.screen.blit(s, (BOARD_X - 20, sy))
 
         mute_color = (180, 60, 60) if self.muted else (100, 180, 100)
-        btn_size = 36
-        btn_x = BOARD_X + BOARD_SIZE // 2
-        btn_y = BOARD_Y + BOARD_SIZE + 48
+        btn_size = 22
+        h_label_x = BOARD_X + 7 * SQUARE_SIZE + SQUARE_SIZE // 2
+        btn_x = h_label_x
+        btn_y = BOARD_Y + BOARD_SIZE + 30
         self.mute_rect = pygame.Rect(btn_x - btn_size // 2, btn_y - btn_size // 2, btn_size, btn_size)
         pygame.draw.circle(self.screen, (70, 70, 80), (btn_x, btn_y), btn_size // 2)
         pygame.draw.circle(self.screen, mute_color, (btn_x, btn_y), btn_size // 2, 2)
-        spk = btn_x - 4
-        pygame.draw.rect(self.screen, (200, 200, 200), (spk - 2, btn_y - 4, 5, 8))
-        pts_l = [(spk + 3, btn_y - 8), (spk + 10, btn_y - 13), (spk + 10, btn_y + 13), (spk + 3, btn_y + 8)]
+        spk = btn_x - 2
+        pygame.draw.rect(self.screen, (200, 200, 200), (spk - 1, btn_y - 2, 3, 5))
+        pts_l = [(spk + 2, btn_y - 5), (spk + 7, btn_y - 9), (spk + 7, btn_y + 9), (spk + 2, btn_y + 5)]
         pygame.draw.polygon(self.screen, (200, 200, 200), pts_l)
         if not self.muted:
-            for r in (14, 19):
+            for r in (10, 14):
                 arc_rect = pygame.Rect(spk - r, btn_y - r, r * 2, r * 2)
                 pygame.draw.arc(self.screen, (200, 200, 200), arc_rect, -0.9, 0.9, 2)
 
