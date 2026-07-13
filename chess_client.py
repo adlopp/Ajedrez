@@ -814,19 +814,19 @@ class ChessClient:
             self.screen.blit(s, (BOARD_X - 20, sy))
 
         mute_color = (180, 60, 60) if self.muted else (100, 180, 100)
-        btn_size = 22
+        btn_size = 34
         h_label_x = BOARD_X + 7 * SQUARE_SIZE + SQUARE_SIZE // 2
         btn_x = h_label_x
-        btn_y = BOARD_Y + BOARD_SIZE + 30
+        btn_y = BOARD_Y + BOARD_SIZE + 55
         self.mute_rect = pygame.Rect(btn_x - btn_size // 2, btn_y - btn_size // 2, btn_size, btn_size)
         pygame.draw.circle(self.screen, (70, 70, 80), (btn_x, btn_y), btn_size // 2)
         pygame.draw.circle(self.screen, mute_color, (btn_x, btn_y), btn_size // 2, 2)
-        spk = btn_x - 2
-        pygame.draw.rect(self.screen, (200, 200, 200), (spk - 1, btn_y - 2, 3, 5))
-        pts_l = [(spk + 2, btn_y - 5), (spk + 7, btn_y - 9), (spk + 7, btn_y + 9), (spk + 2, btn_y + 5)]
+        spk = btn_x - 4
+        pygame.draw.rect(self.screen, (200, 200, 200), (spk - 2, btn_y - 4, 5, 8))
+        pts_l = [(spk + 3, btn_y - 8), (spk + 10, btn_y - 13), (spk + 10, btn_y + 13), (spk + 3, btn_y + 8)]
         pygame.draw.polygon(self.screen, (200, 200, 200), pts_l)
         if not self.muted:
-            for r in (10, 14):
+            for r in (14, 19):
                 arc_rect = pygame.Rect(spk - r, btn_y - r, r * 2, r * 2)
                 pygame.draw.arc(self.screen, (200, 200, 200), arc_rect, -0.9, 0.9, 2)
 
