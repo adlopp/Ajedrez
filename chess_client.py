@@ -498,7 +498,7 @@ class ChessClient:
 
         elif t == "resign":
             self.game_over = True
-            w = "Negras" if self.my_color == "white" else "Blancas"
+            w = "Blancas" if self.my_color == "white" else "Negras"
             self.game_result_text = f"El oponente se rindió. ¡{w} ganan!"
             self.state = "game_over"
             self.update_game_buttons()
