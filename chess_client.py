@@ -242,6 +242,12 @@ class ChessClient:
     def handle_game_button(self, text):
         if text == "Rendirse":
             self.network.send({"type": "resign"})
+            self.game_over = True
+            w = "Blancas" if self.my_color == "white" else "Negras"
+            self.game_result_text = f"Te rendiste. ¡{w} pierden!"
+            self.state = "game_over"
+            self.update_game_buttons()
+            self.add_message("Te has rendido")
         elif text == "Ofrecer Tablas":
             self.network.send({"type": "draw_offer"})
             self.draw_offered = True
@@ -596,29 +602,36 @@ class ChessClient:
     def update_game_buttons(self):
         self.buttons_game = []
         cx = PANEL_X + PANEL_WIDTH // 2
-        by = WINDOW_HEIGHT - 130
+        by = WINDOW_HEIGHT - 75  # Ajustado para que queden abajo en el panel
         bw = 140
+        
         if self.state == "playing":
-            self.buttons_game.append(
-                Button((cx - bw//2, by, bw, 36), "Rendirse", COLOR_BUTTON_RED, COLOR_TEXT))
+            # Botón izquierdo: Ofrecer/Aceptar Tablas
             if self.draw_received:
                 self.buttons_game.append(
-                    Button((cx - bw - 10, by + 46, bw, 36), "Aceptar Tablas", COLOR_BUTTON_GREEN, COLOR_TEXT))
+                    Button((cx - bw - 10, by, bw, 36), "Aceptar Tablas", COLOR_BUTTON_GREEN, COLOR_TEXT))
                 self.buttons_game.append(
-                    Button((cx + 10, by + 46, bw, 36), "Rechazar Tablas", COLOR_BUTTON_RED, COLOR_TEXT))
-            elif not self.draw_offered:
-                self.buttons_game.append(
-                    Button((cx - bw//2, by + 46, bw, 36), "Ofrecer Tablas", COLOR_BUTTON, COLOR_TEXT))
-        elif self.state == "game_over":
+                    Button((cx + 10, by, bw, 36), "Rechazar Tablas", COLOR_BUTTON_RED, COLOR_TEXT))
+            else:
+                if not self.draw_offered:
+                    self.buttons_game.append(
+                        Button((cx - bw - 10, by, bw, 36), "Ofrecer Tablas", COLOR_BUTTON, COLOR_TEXT))
+            
+            # Botón derecho: Rendirse
             self.buttons_game.append(
-                Button((cx - bw//2, by, bw, 36), "Ofrecer Revancha", COLOR_BUTTON_GREEN, COLOR_TEXT))
+                Button((cx + 10, by, bw, 36), "Rendirse", COLOR_BUTTON_RED, COLOR_TEXT))
+                
+        elif self.state == "game_over":
+            by_go = WINDOW_HEIGHT - 130
+            self.buttons_game.append(
+                Button((cx - bw//2, by_go, bw, 36), "Ofrecer Revancha", COLOR_BUTTON_GREEN, COLOR_TEXT))
             if self.rematch_offered_by == "opponent":
                 self.buttons_game.append(
-                    Button((cx - bw - 10, by + 46, bw, 36), "Aceptar Revancha", COLOR_BUTTON_GREEN, COLOR_TEXT))
+                    Button((cx - bw - 10, by_go + 46, bw, 36), "Aceptar Revancha", COLOR_BUTTON_GREEN, COLOR_TEXT))
                 self.buttons_game.append(
-                    Button((cx + 10, by + 46, bw, 36), "Rechazar Revancha", COLOR_BUTTON_RED, COLOR_TEXT))
+                    Button((cx + 10, by_go + 46, bw, 36), "Rechazar Revancha", COLOR_BUTTON_RED, COLOR_TEXT))
             self.buttons_game.append(
-                Button((cx - bw//2, by + 92, bw, 36), "Volver al Menú", COLOR_BUTTON_GRAY, COLOR_TEXT))
+                Button((cx - bw//2, by_go + 92, bw, 36), "Volver al Menú", COLOR_BUTTON_GRAY, COLOR_TEXT))
 
     def draw(self):
         self.screen.fill(COLOR_BG)
@@ -831,38 +844,39 @@ class ChessClient:
                 pygame.draw.arc(self.screen, (200, 200, 200), arc_rect, -0.9, 0.9, 2)
 
     def draw_panel(self):
-        px, py = PANEL_X, 20
-        pw, ph = PANEL_WIDTH, WINDOW_HEIGHT - 40
-        pygame.draw.rect(self.screen, COLOR_PANEL, (px, py, pw, ph), border_radius=10)
+            px, py = PANEL_X, 20
+            pw, ph = PANEL_WIDTH, WINDOW_HEIGHT - 40
+            pygame.draw.rect(self.screen, COLOR_PANEL, (px, py, pw, ph), border_radius=10)
 
-        cx = px + pw // 2
+            cx = px + pw // 2
 
-        my_turn = (self.board.turn == chess.WHITE and self.my_color == "white") or \
-                   (self.board.turn == chess.BLACK and self.my_color == "black")
-        if self.state == "playing":
-            turn_text = "Tu turno" if my_turn else "Turno del otro jugador"
-        else:
-            turn_text = "Turno: Blancas" if self.board.turn == chess.WHITE else "Turno: Negras"
-        t_surf = self.font_med.render(turn_text, True, COLOR_TEXT)
-        self.screen.blit(t_surf, t_surf.get_rect(midtop=(cx, 34)))
+            my_turn = (self.board.turn == chess.WHITE and self.my_color == "white") or \
+                    (self.board.turn == chess.BLACK and self.my_color == "black")
+            if self.state == "playing":
+                turn_text = "Tu turno" if my_turn else "Turno del otro jugador"
+            else:
+                turn_text = "Turno: Blancas" if self.board.turn == chess.WHITE else "Turno: Negras"
+            t_surf = self.font_med.render(turn_text, True, COLOR_TEXT)
+            self.screen.blit(t_surf, t_surf.get_rect(midtop=(cx, 34)))
 
-        if self.my_color:
-            circle_color = (245, 245, 245) if self.my_color == "white" else (40, 40, 40)
-            color_label = "Blancas" if self.my_color == "white" else "Negras"
-            c_surf = self.font_small.render(color_label, True, (180, 180, 180))
-            c_rect = c_surf.get_rect(midtop=(cx, 72))
-            self.screen.blit(c_surf, c_rect)
-            circle_y = c_rect.centery
-            pygame.draw.circle(self.screen, circle_color, (cx - c_rect.width // 2 - 18, circle_y), 10)
-            pygame.draw.circle(self.screen, (180, 180, 180), (cx - c_rect.width // 2 - 18, circle_y), 10, 1)
+            if self.my_color:
+                circle_color = (245, 245, 245) if self.my_color == "white" else (40, 40, 40)
+                color_label = "Blancas" if self.my_color == "white" else "Negras"
+                c_surf = self.font_small.render(color_label, True, (180, 180, 180))
+                c_rect = c_surf.get_rect(midtop=(cx, 72))
+                self.screen.blit(c_surf, c_rect)
+                circle_y = c_rect.centery
+                pygame.draw.circle(self.screen, circle_color, (cx - c_rect.width // 2 - 18, circle_y), 10)
+                pygame.draw.circle(self.screen, (180, 180, 180), (cx - c_rect.width // 2 - 18, circle_y), 10, 1)
 
-        pygame.draw.line(self.screen, (80, 80, 95), (px + 15, 98), (px + pw - 15, 98), 1)
+            # --- MODIFICACIÓN: Primera línea bajada (Línea amarilla superior) ---
+            pygame.draw.line(self.screen, (80, 80, 95), (px + 15, 120), (px + pw - 15, 120), 1)
 
-        y = 112
-        if self.captured_white or self.captured_black:
+            y = 135
             cap_title = self.font_small.render("Capturas", True, (160, 160, 170))
             self.screen.blit(cap_title, cap_title.get_rect(midtop=(cx, y)))
             y += 24
+            
             cap_pieces = []
             if self.captured_black:
                 cap_pieces.extend(self.captured_black[:10])
@@ -875,27 +889,32 @@ class ChessClient:
                     self.screen.blit(cs, cs.get_rect(midtop=(cap_x, y)))
                     cap_x += 18
                 y += 22
-            y += 6
+            else:
+                y += 10
+
+            # --- MODIFICACIÓN: Segunda línea bajada (Línea amarilla inferior) ---
+            y += 5
             pygame.draw.line(self.screen, (80, 80, 95), (px + 15, y), (px + pw - 15, y), 1)
             y += 16
 
-        log_title = self.font_small.render("Historial", True, (160, 160, 170))
-        self.screen.blit(log_title, log_title.get_rect(midtop=(cx, y)))
-        y += 26
+            log_title = self.font_small.render("Historial", True, (160, 160, 170))
+            self.screen.blit(log_title, log_title.get_rect(midtop=(cx, y)))
+            y += 26
 
-        max_log = (WINDOW_HEIGHT - y - 170) // 17
-        start = max(0, len(self.move_log) - max_log)
-        for i in range(start, len(self.move_log)):
-            num = (i // 2) + 1
-            prefix = f"{num}." if i % 2 == 0 else ""
-            txt = f"{prefix} {self.move_log[i]}"
-            s = self.font_tiny.render(txt, True, (200, 200, 200))
-            self.screen.blit(s, (px + 14, y))
-            y += 17
+            # Ajuste dinámico del tamaño del log para que no pise los botones de abajo
+            max_log = (WINDOW_HEIGHT - y - 110) // 17
+            start = max(0, len(self.move_log) - max_log)
+            for i in range(start, len(self.move_log)):
+                num = (i // 2) + 1
+                prefix = f"{num}." if i % 2 == 0 else ""
+                txt = f"{prefix} {self.move_log[i]}"
+                s = self.font_tiny.render(txt, True, (200, 200, 200))
+                self.screen.blit(s, (px + 14, y))
+                y += 17
 
-        if self.state != "game_over":
-            for b in self.buttons_game:
-                b.draw(self.screen, self.font_small)
+            if self.state != "game_over":
+                for b in self.buttons_game:
+                    b.draw(self.screen, self.font_small)
 
     def draw_game_over_overlay(self):
         s = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
