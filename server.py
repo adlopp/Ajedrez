@@ -74,9 +74,9 @@ async def handler(ws):
                         log.info("[%s] Delete cancelado - jugador se une", code)
                     room["players"].append(ws)
                     my_room = code
-                    await room["players"][0].send(json.dumps({"type": "opponent_joined", "color": "white"}))
-                    await room["players"][1].send(json.dumps({"type": "game_start", "color": "black"}))
-                    log.info("[%s] Jugador se unio. Host=white, Joiner=black", code)
+                    await room["players"][0].send(json.dumps({"type": "opponent_joined", "color": "black"}))
+                    await room["players"][1].send(json.dumps({"type": "game_start", "color": "white"}))
+                    log.info("[%s] Jugador se unio. Host=black, Joiner=white", code)
 
             elif t in ("move", "resign", "draw_offer", "draw_response", "rematch", "rematch_response", "chat"):
                 if my_room and my_room in rooms:
