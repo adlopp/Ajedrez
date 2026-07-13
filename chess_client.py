@@ -256,7 +256,11 @@ class ChessClient:
         elif text == "Aceptar Tablas" and self.draw_received:
             self.network.send({"type": "draw_response", "accept": True})
             self.draw_received = False
+            self.game_over = True
+            self.game_result_text = "Tablas acordadas"
+            self.state = "game_over"
             self.update_game_buttons()
+            self.add_message("Tablas acordadas")
         elif text == "Rechazar Tablas" and self.draw_received:
             self.network.send({"type": "draw_response", "accept": False})
             self.draw_received = False
