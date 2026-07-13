@@ -170,7 +170,7 @@ class ChessClient:
             elif event.key == pygame.K_ESCAPE:
                 self.state = "menu"
                 self.input_code = ""
-            elif event.unicode and event.unicode.isprintable() and len(self.input_code) < 8:
+            elif event.unicode and event.unicode.isprintable() and len(self.input_code) < 6:
                 self.input_code += event.unicode.upper()
         elif self.state == "menu":
             if event.key == pygame.K_ESCAPE:
@@ -195,13 +195,17 @@ class ChessClient:
             return
 
         if self.state == "joining_room":
-            btn_rect = pygame.Rect(WINDOW_WIDTH//2-80, 290, 160, 44)
+            ph = 400
+            cy = (WINDOW_HEIGHT - ph) // 2
+            btn_rect = pygame.Rect(WINDOW_WIDTH//2-80, cy + 230, 160, 44)
             if btn_rect.collidepoint(pos) and self.input_code:
                 self.do_join_room(self.input_code)
 
         if self.state == "creating_room":
             if self.room_code:
-                clipboard_rect = pygame.Rect(WINDOW_WIDTH//2-100, 310, 200, 36)
+                ph = 400
+                cy = (WINDOW_HEIGHT - ph) // 2
+                clipboard_rect = pygame.Rect(WINDOW_WIDTH//2-120, cy + 120, 240, 60)
                 if clipboard_rect.collidepoint(pos):
                     try:
                         pygame.scrap.put(pygame.SCRAP_TEXT, self.room_code.encode())
@@ -511,12 +515,24 @@ class ChessClient:
                 self.update_game_buttons()
 
         elif t == "opponent_disconnected":
-            self.add_message("El oponente se desconectó")
+            timeout = msg.get("timeout", 60)
+            self.add_message(f"Oponente desconectado. Sala activa {timeout}s mas")
             if self.state == "playing":
                 self.game_over = True
-                self.game_result_text = "Victoria por abandono del oponente"
+                self.game_result_text = f"Oponente desconectado ({timeout}s)"
                 self.state = "game_over"
                 self.update_game_buttons()
+
+        elif t == "room_expired":
+            self.add_message("La sala ha expirado")
+            if self.state in ("playing", "game_over"):
+                self.game_over = True
+                self.game_result_text = "Sala expirada"
+                self.state = "game_over"
+                self.update_game_buttons()
+            elif self.state in ("waiting_to_join", "creating_room"):
+                self.error_text = "La sala expiró"
+                self.state = "menu"
 
         elif t == "rematch":
             self.rematch_offered_by = "opponent"
@@ -624,75 +640,89 @@ class ChessClient:
                 self.draw_promo_dialog()
 
     def draw_menu(self):
-        pygame.draw.rect(self.screen, COLOR_PANEL,
-                         (WINDOW_WIDTH//2 - 200, 60, 400, 420), border_radius=14)
+        pw, ph = 400, 420
+        px = (WINDOW_WIDTH - pw) // 2
+        py = (WINDOW_HEIGHT - ph) // 2
+        pygame.draw.rect(self.screen, COLOR_PANEL, (px, py, pw, ph), border_radius=14)
 
+        cy = py
         title = self.font_large.render("♚ AJEDREZ ♔", True, (240, 240, 240))
-        self.screen.blit(title, title.get_rect(center=(WINDOW_WIDTH//2, 110)))
+        self.screen.blit(title, title.get_rect(center=(WINDOW_WIDTH//2, cy + 50)))
         title2 = self.font_med.render("ONLINE", True, (180, 180, 190))
-        self.screen.blit(title2, title2.get_rect(center=(WINDOW_WIDTH//2, 150)))
+        self.screen.blit(title2, title2.get_rect(center=(WINDOW_WIDTH//2, cy + 90)))
         sub = self.font_small.render("Juega contra un amigo en tiempo real", True, (150, 150, 160))
-        self.screen.blit(sub, sub.get_rect(center=(WINDOW_WIDTH//2, 195)))
+        self.screen.blit(sub, sub.get_rect(center=(WINDOW_WIDTH//2, cy + 135)))
 
         pygame.draw.line(self.screen, (80, 80, 95),
-                         (WINDOW_WIDTH//2 - 150, 220), (WINDOW_WIDTH//2 + 150, 220), 1)
+                         (WINDOW_WIDTH//2 - 150, cy + 160), (WINDOW_WIDTH//2 + 150, cy + 160), 1)
 
+        self.buttons_menu[0].rect = pygame.Rect(WINDOW_WIDTH//2-120, cy + 190, 240, 50)
+        self.buttons_menu[1].rect = pygame.Rect(WINDOW_WIDTH//2-120, cy + 260, 240, 50)
         for b in self.buttons_menu:
             b.draw(self.screen, self.font_med)
 
         if self.error_text:
             err = self.font_small.render(self.error_text, True, (255, 100, 100))
-            self.screen.blit(err, err.get_rect(center=(WINDOW_WIDTH//2, 430)))
+            self.screen.blit(err, err.get_rect(center=(WINDOW_WIDTH//2, cy + 370)))
 
     def draw_creating_room(self):
-        pygame.draw.rect(self.screen, COLOR_PANEL,
-                         (WINDOW_WIDTH//2 - 200, 60, 400, 400), border_radius=14)
+        pw, ph = 400, 400
+        px = (WINDOW_WIDTH - pw) // 2
+        py = (WINDOW_HEIGHT - ph) // 2
+        pygame.draw.rect(self.screen, COLOR_PANEL, (px, py, pw, ph), border_radius=14)
 
+        cy = py
         title = self.font_med.render("CREAR SALA", True, COLOR_TEXT)
-        self.screen.blit(title, title.get_rect(center=(WINDOW_WIDTH//2, 110)))
+        self.screen.blit(title, title.get_rect(center=(WINDOW_WIDTH//2, cy + 50)))
 
         if self.room_code:
             pygame.draw.rect(self.screen, (40, 45, 55),
-                             (WINDOW_WIDTH//2 - 120, 180, 240, 60), border_radius=8)
+                             (WINDOW_WIDTH//2 - 120, cy + 120, 240, 60), border_radius=8)
             code_text = self.font_large.render(self.room_code, True, (100, 220, 100))
-            self.screen.blit(code_text, code_text.get_rect(center=(WINDOW_WIDTH//2, 210)))
+            self.screen.blit(code_text, code_text.get_rect(center=(WINDOW_WIDTH//2, cy + 150)))
             inst = self.font_small.render("Comparte este código con tu amigo", True, (160, 160, 170))
-            self.screen.blit(inst, inst.get_rect(center=(WINDOW_WIDTH//2, 270)))
+            self.screen.blit(inst, inst.get_rect(center=(WINDOW_WIDTH//2, cy + 210)))
             dots = ".".join(["."] * ((pygame.time.get_ticks() // 800) % 4))
             waiting = self.font_med.render(f"Esperando oponente{dots}", True, (180, 180, 180))
-            self.screen.blit(waiting, waiting.get_rect(center=(WINDOW_WIDTH//2, 330)))
+            self.screen.blit(waiting, waiting.get_rect(center=(WINDOW_WIDTH//2, cy + 270)))
         else:
             dots = ".".join(["."] * ((pygame.time.get_ticks() // 600) % 4))
             loading = self.font_med.render(f"Conectando{dots}", True, COLOR_TEXT)
-            self.screen.blit(loading, loading.get_rect(center=(WINDOW_WIDTH//2, 230)))
+            self.screen.blit(loading, loading.get_rect(center=(WINDOW_WIDTH//2, cy + 170)))
             if self.error_text:
                 err = self.font_small.render(self.error_text, True, (255, 100, 100))
-                self.screen.blit(err, err.get_rect(center=(WINDOW_WIDTH//2, 290)))
+                self.screen.blit(err, err.get_rect(center=(WINDOW_WIDTH//2, cy + 230)))
 
         back = self.font_small.render("ESC para volver", True, (130, 130, 140))
-        self.screen.blit(back, back.get_rect(center=(WINDOW_WIDTH//2, 440)))
+        self.screen.blit(back, back.get_rect(center=(WINDOW_WIDTH//2, cy + ph - 30)))
 
     def draw_joining_room(self):
-        pygame.draw.rect(self.screen, COLOR_PANEL,
-                         (WINDOW_WIDTH//2 - 200, 60, 400, 400), border_radius=14)
+        pw, ph = 400, 400
+        px = (WINDOW_WIDTH - pw) // 2
+        py = (WINDOW_HEIGHT - ph) // 2
+        pygame.draw.rect(self.screen, COLOR_PANEL, (px, py, pw, ph), border_radius=14)
 
+        cy = py
         title = self.font_med.render("UNIRSE A SALA", True, COLOR_TEXT)
-        self.screen.blit(title, title.get_rect(center=(WINDOW_WIDTH//2, 110)))
+        self.screen.blit(title, title.get_rect(center=(WINDOW_WIDTH//2, cy + 50)))
 
         prompt = self.font_small.render("Ingresa el código de la sala:", True, (180, 180, 180))
-        self.screen.blit(prompt, prompt.get_rect(center=(WINDOW_WIDTH//2, 190)))
+        self.screen.blit(prompt, prompt.get_rect(center=(WINDOW_WIDTH//2, cy + 130)))
 
-        input_rect = pygame.Rect(WINDOW_WIDTH//2-120, 220, 240, 44)
+        input_rect = pygame.Rect(WINDOW_WIDTH//2-120, cy + 160, 240, 44)
         pygame.draw.rect(self.screen, COLOR_INPUT_BG, input_rect, border_radius=8)
         border_color = (100, 180, 255) if self.input_code else (100, 100, 120)
         pygame.draw.rect(self.screen, border_color, input_rect, 2, border_radius=8)
 
+        clipped = input_rect.inflate(-8, 0)
+        self.screen.set_clip(clipped)
         cursor = "|" if pygame.time.get_ticks() % 1000 < 500 else " "
         code_display = self.input_code + cursor
         surf = self.font_large.render(code_display, True, COLOR_TEXT)
-        self.screen.blit(surf, surf.get_rect(center=input_rect.center))
+        self.screen.blit(surf, surf.get_rect(midleft=(clipped.left, clipped.centery)))
+        self.screen.set_clip(None)
 
-        btn_rect = pygame.Rect(WINDOW_WIDTH//2-80, 290, 160, 44)
+        btn_rect = pygame.Rect(WINDOW_WIDTH//2-80, cy + 230, 160, 44)
         btn_color = COLOR_BUTTON if self.input_code else COLOR_BUTTON_GRAY
         pygame.draw.rect(self.screen, btn_color, btn_rect, border_radius=8)
         btn_surf = self.font_med.render("Unirse", True, COLOR_TEXT)
@@ -700,10 +730,10 @@ class ChessClient:
 
         if self.error_text:
             err = self.font_small.render(self.error_text, True, (255, 100, 100))
-            self.screen.blit(err, err.get_rect(center=(WINDOW_WIDTH//2, 370)))
+            self.screen.blit(err, err.get_rect(center=(WINDOW_WIDTH//2, cy + 310)))
 
         back = self.font_small.render("ESC para volver", True, (130, 130, 140))
-        self.screen.blit(back, back.get_rect(center=(WINDOW_WIDTH//2, 440)))
+        self.screen.blit(back, back.get_rect(center=(WINDOW_WIDTH//2, cy + ph - 30)))
 
     def draw_waiting(self):
         dots = ".".join(["."] * ((pygame.time.get_ticks() // 600) % 4))
